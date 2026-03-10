@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Conductividad Térmica</title>
+    <script src="xlsx.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 650px;
+            width: 100%;
+        }
+        h1 {
+            color: #1a1a2e;
+            margin-bottom: 5px;
+            font-size: 1.6rem;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 0.9rem;
+        }
+        .section-title {
+            color: #16213e;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 20px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+        .formula {
+            background: #f5f5f5;
+            padding: 12px 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            color: #333;
+        }
+        .input-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .input-group {
+            flex: 1;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        input[type="number"], input[type="file"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #16213e;
+        }
+        .unit {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 3px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #16213e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #1a1a2e;
+        }
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        .result-k {
+            background: #e8f5e9;
+        }
+        .result-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .result-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .result-k .result-value {
+            color: #2e7d32;
+        }
+        .result-unit {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 3px;
+        }
+        .note {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 15px;
+            text-align: center;
+            font-style: italic;
+        }
+        .meseta-box {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .meseta-title {
+            font-weight: 600;
+            color: #16213e;
+            margin-bottom: 8px;
+        }
+        .meseta-data {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            font-size: 0.85rem;
+        }
+        .meseta-data span {
+            color: #666;
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #e0e0e0;
+            padding: 8px;
+            text-align: center;
+        }
+        .results-table th {
+            background: #16213e;
+            color: white;
+        }
+        .results-table td {
+            background: #fff;
+        }
+        .results-table tr:nth-child(even) td {
+            background: #f8f9fa;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Calculadora de k</h1>
+        <p class="subtitle">Coeficiente de conductividad térmica</p>
+
+        <!-- Subir archivo Excel -->
+        <div class="section-title">1. Cargar datos del Excel</div>
+        <div class="input-row">
+            <div class="input-group">
+                <label for="excelFile">Seleccionar archivo Excel</label>
+                <input type="file" id="excelFile" accept=".xls,.xlsx">
+            </div>
+        </div>
+        <button onclick="leerExcel()" id="btnCargar">Cargar datos</button>
+        <div class="note" id="excelStatus"></div>
+
+        <!-- Mesetas detectadas -->
+        <div class="section-title" id="mesetasSection" style="display:none;">2. Mesetas Detectadas</div>
+        <div id="mesetasContainer"></div>
+
+        <!-- Datos del material por termopar -->
+        <div class="section-title" id="materialSection" style="display:none;">3. Datos del Material (por termopar)</div>
+        <div id="materialInputsContainer"></div>
+
+        <!-- Datos de geometría (comunes) -->
+        <div class="section-title" id="geometriaSection" style="display:none;">4. Geometría (común)</div>
+
+        <div class="input-row" id="inputGeometria" style="display:none;">
+            <div class="input-group">
+                <label for="espesor">Espesor (d) - mm</label>
+                <input type="number" id="espesor" step="any" placeholder="Ej: 50">
+            </div>
+            <div class="input-group">
+                <label for="altura">Altura - mm</label>
+                <input type="number" id="altura" step="any" placeholder="Ej: 1000">
+            </div>
+        </div>
+
+        <div class="input-row" id="inputArea" style="display:none;">
+            <div class="input-group">
+                <label for="lado">Lado - mm</label>
+                <input type="number" id="lado" step="any" placeholder="Ej: 800">
+            </div>
+        </div>
+
+        <!-- Fórmulas -->
+        <div class="section-title">Fórmulas</div>
+        <div class="formula">Q = m × Cp × ΔT_material</div>
+        <div class="formula">k = (Q × d) / (A × ΔT_caras × t)</div>
+
+        <button onclick="calcular()" id="btnCalcular" disabled>Calcular k</button>
+
+        <!-- Resultados -->
+        <div class="result result-k" id="resultK">
+            <div class="result-label">Resultados de k por meseta</div>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <div class="note" id="note"></div>
+    </div>
+
+    <script>
+        // Variables globales para almacenar los datos
+        let mesetas = [];
+        let datosExcel = [];
+
+        function leerExcel() {
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                document.getElementById('excelStatus').textContent = 'Por favor, selecciona un archivo Excel.';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // Buscar la hoja "registro hora-hora"
+                    let sheetName = 'registro hora-hora';
+                    if (!workbook.Sheets[sheetName]) {
+                        // Buscar alternativas
+                        const posibles = workbook.SheetNames.filter(n => n.toLowerCase().includes('registro') || n.toLowerCase().includes('hora'));
+                        if (posibles.length > 0) {
+                            sheetName = posibles[0];
+                        } else {
+                            throw new Error('No se encontró la hoja "registro hora-hora"');
+                        }
+                    }
+
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    processExcelData(jsonData);
+                    document.getElementById('excelStatus').textContent = 'Datos cargados correctamente. Se detectaron ' + mesetas.length + ' mesetas.';
+                    document.getElementById('excelStatus').style.color = 'green';
+                    document.getElementById('btnCalcular').disabled = false;
+
+                } catch (error) {
+                    document.getElementById('excelStatus').textContent = 'Error: ' + error.message;
+                    document.getElementById('excelStatus').style.color = 'red';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Variable global para almacenar los termopares detectados
+        let termopares = [];
+
+        function processExcelData(data) {
+            // Buscar la fila de encabezados (fila 3 en el Excel, índice 2 en array)
+            // Buscar columnas: Nº HORA, T RAMPA, T Q1, T Q2, ..., T AISLANTE
+            let headerRow = -1;
+            let colNumHora = -1;
+            let colTRampa = -1;
+            let colTAislante = -1;
+            termopares = []; // Resetear termopares
+
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                const row = data[i];
+                if (!row) continue;
+
+                for (let j = 0; j < row.length; j++) {
+                    const cell = String(row[j] || '').toLowerCase();
+                    // Buscar "nº hora" o "numero hora" - columna con números: 1, 2, 3...
+                    if ((cell.includes('º') || cell.includes('°')) && cell.includes('hora')) colNumHora = j;
+                    if (cell.includes('rampa')) colTRampa = j;
+                    // Buscar termopares Q1, Q2, Q3, etc.
+                    if (cell.includes('q') && /\d/.test(cell)) {
+                        const qMatch = cell.match(/q\d+/);
+                        if (qMatch && !termopares.find(t => t.nombre === qMatch[0].toUpperCase())) {
+                            termopares.push({ nombre: qMatch[0].toUpperCase(), columna: j });
+                        }
+                    }
+                    if (cell.includes('aislante')) colTAislante = j;
+                }
+
+                if (colNumHora >= 0 && colTRampa >= 0 && termopares.length > 0 && colTAislante >= 0) {
+                    headerRow = i;
+                    break;
+                }
+            }
+
+            // Ordenar termopares por número
+            termopares.sort((a, b) => {
+                const numA = parseInt(a.nombre.replace(/\D/g, ''));
+                const numB = parseInt(b.nombre.replace(/\D/g, ''));
+                return numA - numB;
+            });
+
+            if (headerRow === -1) {
+                // Usar columnas por defecto
+                colNumHora = 2;
+                colTRampa = 3;
+                termopares = [{ nombre: 'Q1', columna: 4 }];
+                colTAislante = 5;
+                headerRow = 2;
+            }
+
+            // Extraer datos (empezar desde la fila después de encabezados)
+            datosExcel = [];
+            for (let i = headerRow + 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row || row.length === 0) continue;
+
+                const numHora = parseFloat(String(row[colNumHora] || '').replace(',', '.')); // Nº HORA: 1, 2, 3...
+                const tRampa = parseFloat(String(row[colTRampa] || '').replace(',', '.'));
+                const tAislante = parseFloat(String(row[colTAislante] || '').replace(',', '.'));
+
+                // Extraer temperaturas de todos los termopares
+                const tempsTermopares = {};
+                let todosTermoparesValidos = true;
+                for (const tp of termopares) {
+                    const temp = parseFloat(String(row[tp.columna] || '').replace(',', '.'));
+                    if (isNaN(temp)) {
+                        todosTermoparesValidos = false;
+                        break;
+                    }
+                    tempsTermopares[tp.nombre] = temp;
+                }
+
+                if (!isNaN(tRampa) && !isNaN(tAislante) && !isNaN(numHora) && todosTermoparesValidos) {
+                    datosExcel.push({ tRampa, tAislante, numHora, termopares: tempsTermopares });
+                }
+            }
+
+            // Detectar mesetas (períodos donde T RAMPA es constante)
+            mesetas = [];
+            if (datosExcel.length > 0) {
+                let mesetaActual = {
+                    inicio: 0,
+                    fin: 0,
+                    tRampa: datosExcel[0].tRampa,
+                    datos: [datosExcel[0]]
+                };
+
+                for (let i = 1; i < datosExcel.length; i++) {
+                    const diff = Math.abs(datosExcel[i].tRampa - datosExcel[i-1].tRampa);
+
+                    if (diff < 1) { // Misma temperatura (tolerancia de 1 grado)
+                        mesetaActual.fin = i;
+                        mesetaActual.datos.push(datosExcel[i]);
+                    } else {
+                        // Cerrar meseta actual si tiene más de 1 dato
+                        if (mesetaActual.datos.length > 1) {
+                            mesetas.push(mesetaActual);
+                        }
+                        // Iniciar nueva meseta
+                        mesetaActual = {
+                            inicio: i,
+                            fin: i,
+                            tRampa: datosExcel[i].tRampa,
+                            datos: [datosExcel[i]]
+                        };
+                    }
+                }
+
+                // Agregar la última meseta
+                if (mesetaActual.datos.length > 1) {
+                    mesetas.push(mesetaActual);
+                }
+            }
+
+            // Calcular valores para cada meseta
+            mesetas.forEach((meseta, idx) => {
+                // ΔT material: T_final - T_inicial (primer y último valor de aislante)
+                meseta.dtMaterial = meseta.datos[meseta.datos.length - 1].tAislante - meseta.datos[0].tAislante;
+
+                // Media de T Aislante en la meseta
+                const sumaAislante = meseta.datos.reduce((sum, d) => sum + d.tAislante, 0);
+                meseta.mediaAislante = sumaAislante / meseta.datos.length;
+
+                // Calcular para cada termopar
+                meseta.termoparesData = {};
+                for (const tp of termopares) {
+                    const sumaTemp = meseta.datos.reduce((sum, d) => sum + d.termopares[tp.nombre], 0);
+                    const mediaTemp = sumaTemp / meseta.datos.length;
+                    // ΔT caras: media(termopar) - media(aislante)
+                    const dtCaras = mediaTemp - meseta.mediaAislante;
+                    meseta.termoparesData[tp.nombre] = {
+                        mediaTermopar: mediaTemp,
+                        dtCaras: dtCaras
+                    };
+                }
+
+                // Tiempo: (última hora - primera hora) * 3600 segundos
+                const numHoraInicio = meseta.datos[0].numHora;
+                const numHoraFin = meseta.datos[meseta.datos.length - 1].numHora;
+                meseta.tiempoSegundos = (numHoraFin - numHoraInicio) * 3600;
+                meseta.tiempoHoras = meseta.tiempoSegundos / 3600;
+
+                // Temperatura inicial y final del aislante
+                meseta.tAislanteInicio = meseta.datos[0].tAislante;
+                meseta.tAislanteFin = meseta.datos[meseta.datos.length - 1].tAislante;
+            });
+
+            mostrarMesetas();
+        }
+
+        function mostrarMesetas() {
+            const container = document.getElementById('mesetasContainer');
+            const section = document.getElementById('mesetasSection');
+            const materialSection = document.getElementById('materialSection');
+            const geometriaSection = document.getElementById('geometriaSection');
+
+            section.style.display = 'block';
+            materialSection.style.display = 'block';
+            geometriaSection.style.display = 'block';
+
+            // Preguntar si todos los termopares están en el mismo hormiguer
+            let mismoHormigonHTML = '';
+            if (termopares.length > 1) {
+                mismoHormigonHTML = `
+                    <div class="meseta-box" style="background:#e3f2fd; border:2px solid #2196F3; margin-bottom:20px;">
+                        <div class="meseta-title" style="margin-top:0; color:#1565C0;">
+                            ¿Los termopares están en el mismo hormigón?
+                        </div>
+                        <div class="input-row" style="margin-bottom:0;">
+                            <div class="input-group">
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                    <input type="radio" name="mismoHormigon" value="si" onchange="toggleMismoHormigon(true)" checked>
+                                    <span>Sí, mismo hormigón para todos</span>
+                                </label>
+                            </div>
+                            <div class="input-group">
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                    <input type="radio" name="mismoHormigon" value="no" onchange="toggleMismoHormigon(false)">
+                                    <span>No, cada termopar es diferente</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Mostrar mesetas
+            let html = '';
+            mesetas.forEach((meseta, idx) => {
+                html += `
+                    <div class="meseta-box">
+                        <div class="meseta-title">Meseta ${idx + 1}: T RAMPA = ${meseta.tRampa}°C</div>
+                        <div class="meseta-data">
+                            <span>Nº Hora inicio: <strong>${meseta.datos[0].numHora}</strong></span>
+                            <span>Nº Hora fin: <strong>${meseta.datos[meseta.datos.length - 1].numHora}</strong></span>
+                            <span>ΔT material: <strong>${meseta.dtMaterial.toFixed(2)}</strong> K</span>
+                            <span>Duración: <strong>${meseta.tiempoHoras.toFixed(1)}</strong> h (${meseta.tiempoSegundos}s)</span>
+                            <span>T aislante inicio: <strong>${meseta.tAislanteInicio.toFixed(1)}</strong>°C</span>
+                            <span>T aislante fin: <strong>${meseta.tAislanteFin.toFixed(1)}</strong>°C</span>
+                            <span>Media T aislante: <strong>${meseta.mediaAislante.toFixed(1)}</strong>°C</span>
+                        </div>
+                `;
+
+                // Mostrar datos de cada termopar
+                for (const tp of termopares) {
+                    const tpData = meseta.termoparesData[tp.nombre];
+                    html += `
+                        <div class="meseta-data" style="margin-top:5px; padding-top:5px; border-top:1px solid #ddd;">
+                            <span><strong>${tp.nombre}</strong>: Media = <strong>${tpData.mediaTermopar.toFixed(1)}</strong>°C, ΔT caras = <strong>${tpData.dtCaras.toFixed(2)}</strong> K</span>
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+            });
+
+            container.innerHTML = mismoHormigonHTML + html;
+
+            // Crear campos de entrada para cada termopar
+            crearCamposMaterial();
+        }
+
+        function toggleMismoHormigon(esMismo) {
+            crearCamposMaterial();
+        }
+
+        // Lista de materiales con su Cp típico (kJ/kg·K)
+        const materialesDB = [
+            { nombre: "Seleccionar material...", cp: "" },
+            { nombre: "Hormigones densos (SCAFCO, ALKON CAST)", cp: "0.90" },
+            { nombre: "Hormigones aislantes (LW, Low Weight)", cp: "1.00" },
+            { nombre: "Hormigones AL2O3 60%", cp: "0.95" },
+            { nombre: "Hormigones AL2O3 70%", cp: "0.92" },
+            { nombre: "Hormigones AL2O3 80-90%", cp: "0.90" },
+            { nombre: "Ladrillos refractarios densos", cp: "0.90" },
+            { nombre: "Ladrillos aislantes", cp: "0.95" },
+            { nombre: "Silicato cálcico", cp: "0.95" },
+            { nombre: "Lana mineral / fibra cerámica", cp: "0.85" },
+            { nombre: "Morteros refractarios", cp: "0.90" },
+            { nombre: "Hormigones NO WET", cp: "0.88" },
+            { nombre: "PROMASIL-1000", cp: "1.00" },
+            { nombre: "INSULFRAX", cp: "0.90" },
+            { nombre: "PROMATON-23", cp: "0.95" },
+            { nombre: "Otro material...", cp: "otro" }
+        ];
+
+        function crearCamposMaterial() {
+            const container = document.getElementById('materialInputsContainer');
+            let html = '';
+
+            // Verificar si todos los termopares están en el mismo hormigón
+            const mismoHormigonRadio = document.querySelector('input[name="mismoHormigon"]:checked');
+            const esMismoHormigon = mismoHormigonRadio ? mismoHormigonRadio.value === 'si' : (termopares.length <= 1);
+
+            // Crear opciones para el select
+            let opcionesMaterial = '';
+            for (let i = 0; i < materialesDB.length; i++) {
+                const mat = materialesDB[i];
+                if (mat.cp !== "" && mat.cp !== "otro" && mat.cp !== undefined) {
+                    opcionesMaterial += `<option value="${mat.cp}">${mat.nombre}</option>`;
+                }
+            }
+
+            if (esMismoHormigon) {
+                // Un solo bloque de datos para todos los termopares
+                html += `
+                    <div class="termopar-box" style="background:#e8f5e9; border:2px solid #4caf50; border-radius:8px; padding:15px; margin-bottom:15px;">
+                        <div class="meseta-title" style="margin-top:0; color:#2e7d32;">Mismo hormigón para todos los termopares</div>
+
+                        <!-- Selección de material -->
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="material_comun">Material</label>
+                                <select id="material_comun" onchange="seleccionarMaterial('comun')" style="width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:8px; font-size:1rem;">
+                                    <option value="">-- Seleccionar material --</option>
+                                    ${opcionesMaterial}
+                                    <option value="otro">Otro material...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Campos para "Otro" material (solo si selecciona otro) -->
+                        <div id="otroMaterial_comun" style="display:none;">
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="nombreOtro_comun">Nombre del material</label>
+                                    <input type="text" id="nombreOtro_comun" placeholder="Escribe el nombre del material">
+                                </div>
+                            </div>
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="cpOtro_comun">Cp - kJ/(kg·K)</label>
+                                    <input type="number" id="cpOtro_comun" step="any" placeholder="Ej: 0.9">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cp (se muestra siempre, editable) -->
+                        <div class="input-row" id="cpContainer_comun">
+                            <div class="input-group">
+                                <label for="cp_comun">Cp - kJ/(kg·K)</label>
+                                <input type="number" id="cp_comun" step="any" placeholder="Selecciona o escribe el Cp">
+                            </div>
+                        </div>
+
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="masa_comun">Masa - kg</label>
+                                <input type="number" id="masa_comun" step="any" placeholder="Ej: 2.5">
+                            </div>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="espesor_comun">Espesor - mm</label>
+                                <input type="number" id="espesor_comun" step="any" placeholder="Ej: 50">
+                            </div>
+                            <div class="input-group">
+                                <label for="altura_comun">Altura - mm</label>
+                                <input type="number" id="altura_comun" step="any" placeholder="Ej: 1000">
+                            </div>
+                            <div class="input-group">
+                                <label for="lado_comun">Lado - mm</label>
+                                <input type="number" id="lado_comun" step="any" placeholder="Ej: 800">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Un bloque por cada termopar
+                for (const tp of termopares) {
+                    html += `
+                        <div class="termopar-box" style="background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:15px; margin-bottom:15px;">
+                            <div class="meseta-title" style="margin-top:0;">Datos para ${tp.nombre}</div>
+
+                            <!-- Selección de material -->
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="material_${tp.nombre}">Material</label>
+                                    <select id="material_${tp.nombre}" onchange="seleccionarMaterial('${tp.nombre}')" style="width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:8px; font-size:1rem;">
+                                        <option value="">-- Seleccionar material --</option>
+                                        ${opcionesMaterial}
+                                        <option value="otro">Otro material...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Campos para "Otro" material (solo si selecciona otro) -->
+                            <div id="otroMaterial_${tp.nombre}" style="display:none;">
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <label for="nombreOtro_${tp.nombre}">Nombre del material</label>
+                                        <input type="text" id="nombreOtro_${tp.nombre}" placeholder="Escribe el nombre del material">
+                                    </div>
+                                </div>
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <label for="cpOtro_${tp.nombre}">Cp - kJ/(kg·K)</label>
+                                        <input type="number" id="cpOtro_${tp.nombre}" step="any" placeholder="Ej: 0.9">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cp para materiales de la lista -->
+                            <div class="input-row" id="cpContainer_${tp.nombre}">
+                                <div class="input-group">
+                                    <label for="cp_${tp.nombre}">Cp - kJ/(kg·K)</label>
+                                    <input type="number" id="cp_${tp.nombre}" step="any" placeholder="Selecciona un material">
+                                </div>
+                            </div>
+
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="masa_${tp.nombre}">Masa - kg</label>
+                                    <input type="number" id="masa_${tp.nombre}" step="any" placeholder="Ej: 2.5">
+                                </div>
+                            </div>
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="espesor_${tp.nombre}">Espesor - mm</label>
+                                    <input type="number" id="espesor_${tp.nombre}" step="any" placeholder="Ej: 50">
+                                </div>
+                                <div class="input-group">
+                                    <label for="altura_${tp.nombre}">Altura - mm</label>
+                                    <input type="number" id="altura_${tp.nombre}" step="any" placeholder="Ej: 1000">
+                                </div>
+                                <div class="input-group">
+                                    <label for="lado_${tp.nombre}">Lado - mm</label>
+                                    <input type="number" id="lado_${tp.nombre}" step="any" placeholder="Ej: 800">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = html;
+
+            // Ocultar campos de geometría común
+            document.getElementById('inputGeometria').style.display = 'none';
+            document.getElementById('inputArea').style.display = 'none';
+        }
+
+        // Función vacía - ya no se usa
+        function seleccionarMaterial(tpNombre) {
+            const select = document.getElementById(`material_${tpNombre}`);
+            const otroDiv = document.getElementById(`otroMaterial_${tpNombre}`);
+            const cpContainer = document.getElementById(`cpContainer_${tpNombre}`);
+            const cpInput = document.getElementById(`cp_${tpNombre}`);
+
+            if (select.value === "otro") {
+                // Mostrar campos para otro material
+                otroDiv.style.display = "block";
+                cpContainer.style.display = "none";
+                document.getElementById(`nombreOtro_${tpNombre}`).focus();
+            } else {
+                // Ocultar campos de otro material y mostrar Cp
+                otroDiv.style.display = "none";
+                cpContainer.style.display = "flex";
+                // Autocompletar Cp si es un material de la lista
+                if (select.value !== "") {
+                    cpInput.value = select.value;
+                }
+            }
+        }
+
+        function calcular() {
+            // Verificar si todos los termopares están en el mismo hormigón
+            const mismoHormigonRadio = document.querySelector('input[name="mismoHormigon"]:checked');
+            const esMismoHormigon = mismoHormigonRadio ? mismoHormigonRadio.value === 'si' : (termopares.length <= 1);
+
+            // Leer datos de cada termopar (masa, cp, geometría)
+            const datosTermopares = {};
+
+            if (esMismoHormigon) {
+                // Usar datos comunes para todos los termopares
+                const masa = parseFloat(document.getElementById(`masa_comun`).value);
+                const selectMaterial = document.getElementById(`material_comun`);
+                let cp;
+                if (selectMaterial.value === "otro") {
+                    cp = parseFloat(document.getElementById(`cpOtro_comun`).value);
+                } else {
+                    cp = parseFloat(document.getElementById(`cp_comun`).value);
+                }
+                const espesor = parseFloat(document.getElementById(`espesor_comun`).value);
+                const altura = parseFloat(document.getElementById(`altura_comun`).value);
+                const lado = parseFloat(document.getElementById(`lado_comun`).value);
+
+                // Validar
+                if ([masa, cp, espesor, altura, lado].some(isNaN)) {
+                    alert(`Por favor, completa todos los campos.`);
+                    return;
+                }
+
+                if (espesor === 0 || altura === 0 || lado === 0) {
+                    alert(`Espesor, altura y lado deben ser mayores que cero.`);
+                    return;
+                }
+
+                // Convertir unidades: mm a m, kJ a J
+                const espesorM = espesor / 1000;
+                const alturaM = altura / 1000;
+                const ladoM = lado / 1000;
+
+                // Asignar los mismos datos a todos los termopares
+                for (const tp of termopares) {
+                    datosTermopares[tp.nombre] = {
+                        masa: masa,
+                        cp: cp * 1000,
+                        espesorM: espesorM,
+                        area: ladoM * alturaM
+                    };
+                }
+            } else {
+                // Datos individuales por termopar
+                for (const tp of termopares) {
+                    const masa = parseFloat(document.getElementById(`masa_${tp.nombre}`).value);
+                    const selectMaterial = document.getElementById(`material_${tp.nombre}`);
+                    let cp;
+                    if (selectMaterial.value === "otro") {
+                        cp = parseFloat(document.getElementById(`cpOtro_${tp.nombre}`).value);
+                    } else {
+                        cp = parseFloat(document.getElementById(`cp_${tp.nombre}`).value);
+                    }
+                    const espesor = parseFloat(document.getElementById(`espesor_${tp.nombre}`).value);
+                    const altura = parseFloat(document.getElementById(`altura_${tp.nombre}`).value);
+                    const lado = parseFloat(document.getElementById(`lado_${tp.nombre}`).value);
+
+                    // Validar
+                    if ([masa, cp, espesor, altura, lado].some(isNaN)) {
+                        alert(`Por favor, completa todos los campos para ${tp.nombre}.`);
+                        return;
+                    }
+
+                    if (espesor === 0 || altura === 0 || lado === 0) {
+                        alert(`Espesor, altura y lado deben ser mayores que cero para ${tp.nombre}.`);
+                        return;
+                    }
+
+                    // Convertir unidades: mm a m, kJ a J
+                    const espesorM = espesor / 1000;
+                    const alturaM = altura / 1000;
+                    const ladoM = lado / 1000;
+
+                    datosTermopares[tp.nombre] = {
+                        masa: masa,
+                        cp: cp * 1000,
+                        espesorM: espesorM,
+                        area: ladoM * alturaM
+                    };
+                }
+            }
+
+            // Calcular k para cada meseta y cada termopar
+            let html = `
+                <table class="results-table">
+                    <tr>
+                        <th>Meseta</th>
+                        <th>T RAMPA</th>
+                        <th>Termopar</th>
+                        <th>ΔT material</th>
+                        <th>ΔT caras</th>
+                        <th>t (s)</th>
+                        <th>Q (J)</th>
+                        <th>k (W/m·K)</th>
+                    </tr>
+            `;
+
+            mesetas.forEach((meseta, idx) => {
+                for (const tp of termopares) {
+                    const tpData = meseta.termoparesData[tp.nombre];
+                    const matData = datosTermopares[tp.nombre];
+
+                    if (tpData.dtCaras <= 0) {
+                        alert(`La meseta ${idx+1} para ${tp.nombre} tiene ΔT_caras <= 0. No se puede calcular k.`);
+                        continue;
+                    }
+
+                    // Q = m * Cp * ΔT_material
+                    const Q = matData.masa * matData.cp * meseta.dtMaterial;
+
+                    // k = (Q * d) / (A * ΔT_caras * t)
+                    const k = (Q * matData.espesorM) / (matData.area * tpData.dtCaras * meseta.tiempoSegundos);
+
+                    html += `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>${meseta.tRampa}°C</td>
+                            <td><strong>${tp.nombre}</strong></td>
+                            <td>${meseta.dtMaterial.toFixed(2)}</td>
+                            <td>${tpData.dtCaras.toFixed(2)}</td>
+                            <td>${meseta.tiempoSegundos}</td>
+                            <td>${Q.toLocaleString('es-ES', {maximumFractionDigits: 0})}</td>
+                            <td><strong>${k.toFixed(6)}</strong></td>
+                        </tr>
+                    `;
+                }
+            });
+
+            html += '</table>';
+
+            document.getElementById('resultsContainer').innerHTML = html;
+            document.getElementById('resultK').classList.add('show');
+            document.getElementById('note').textContent = `Cálculo completado para ${termopares.length} termopares y ${mesetas.length} mesetas.`;
+        }
+    </script>
+</body>
+</html>
