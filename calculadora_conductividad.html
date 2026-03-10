@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Conductividad Térmica</title>
+    <title>CÁLCULO DE COEFICIENTE DE CONDUCTIVIDAD TÉRMICA</title>
     <script src="xlsx.min.js"></script>
+    <script src="chart.umd.js"></script>
+    <script src="chartjs-plugin-annotation.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -25,13 +27,13 @@
             border-radius: 16px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             padding: 40px;
-            max-width: 650px;
+            max-width: 1400px;
             width: 100%;
         }
         h1 {
             color: #1a1a2e;
             margin-bottom: 5px;
-            font-size: 1.6rem;
+            font-size: 2.2rem;
             text-align: center;
         }
         .subtitle {
@@ -119,6 +121,17 @@
             border-radius: 8px;
             display: none;
         }
+        #chartsContainer {
+            display: none;
+        }
+        #chartsContainer .result {
+            display: block;
+            background: #fff;
+        }
+        #chartsContainer canvas {
+            max-width: 100%;
+            height: 500px !important;
+        }
         .result.show {
             display: block;
             animation: fadeIn 0.5s ease;
@@ -201,7 +214,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Calculadora de k</h1>
+        <h1>CÁLCULO DE COEFICIENTE DE CONDUCTIVIDAD TÉRMICA</h1>
         <p class="subtitle">Coeficiente de conductividad térmica</p>
 
         <!-- Subir archivo Excel -->
@@ -255,6 +268,21 @@
         <div class="result result-k" id="resultK">
             <div class="result-label">Resultados de k por meseta</div>
             <div id="resultsContainer"></div>
+        </div>
+
+        <!-- Gráficas -->
+        <div class="section-title" id="chartsSection" style="display:none;">Gráficas</div>
+        <button onclick="mostrarGraficas()" id="btnGraficas" disabled style="display:none;">Ver Gráficas</button>
+
+        <div id="chartsContainer" style="display:none;">
+            <div class="result" id="chartTemp" style="display:block; background:#fff;">
+                <div class="result-label">Temperaturas vs Tiempo</div>
+                <canvas id="chartTemperaturas"></canvas>
+            </div>
+            <div class="result" id="chartK" style="display:block; background:#fff; margin-top:20px;">
+                <div class="result-label">Conductividad térmica (k) por meseta</div>
+                <canvas id="chartKValues"></canvas>
+            </div>
         </div>
 
         <div class="note" id="note"></div>
@@ -874,6 +902,164 @@
             document.getElementById('resultsContainer').innerHTML = html;
             document.getElementById('resultK').classList.add('show');
             document.getElementById('note').textContent = `Cálculo completado para ${termopares.length} termopares y ${mesetas.length} mesetas.`;
+
+            // Habilitar botón de gráficas
+            document.getElementById('chartsSection').style.display = 'block';
+            document.getElementById('btnGraficas').style.display = 'block';
+            document.getElementById('btnGraficas').disabled = false;
+
+            // Guardar resultados para las gráficas
+            window.resultadosCalculo = [];
+            mesetas.forEach((meseta, idx) => {
+                for (const tp of termopares) {
+                    const tpData = meseta.termoparesData[tp.nombre];
+                    const matData = datosTermopares[tp.nombre];
+                    if (tpData.dtCaras > 0) {
+                        const Q = matData.masa * matData.cp * meseta.dtMaterial;
+                        const k = (Q * matData.espesorM) / (matData.area * tpData.dtCaras * meseta.tiempoSegundos);
+                        window.resultadosCalculo.push({
+                            meseta: idx + 1,
+                            tRampa: meseta.tRampa,
+                            termopar: tp.nombre,
+                            k: k
+                        });
+                    }
+                }
+            });
+        }
+
+        function mostrarGraficas() {
+            document.getElementById('chartsContainer').style.display = 'block';
+
+            // Gráfica 1: Temperaturas vs Tiempo (a escala)
+            const ctx1 = document.getElementById('chartTemperaturas').getContext('2d');
+
+            // Preparar datos con coordenadas x (tiempo) e y (temperatura)
+            const xData = datosExcel.map(d => d.numHora);
+
+            const datasetsTemp = [
+                {
+                    label: 'T RAMPA',
+                    data: datosExcel.map((d, i) => ({ x: xData[i], y: d.tRampa })),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgb(255, 99, 132)',
+                    fill: false,
+                    tension: 0.1,
+                    showLine: true,
+                    pointRadius: 3
+                },
+                {
+                    label: 'T AISLANTE',
+                    data: datosExcel.map((d, i) => ({ x: xData[i], y: d.tAislante })),
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgb(54, 162, 235)',
+                    fill: false,
+                    tension: 0.1,
+                    showLine: true,
+                    pointRadius: 3
+                }
+            ];
+
+            // Colores para termopares
+            const colors = [
+                'rgb(255, 206, 86)',  // Q1 - amarillo
+                'rgb(75, 192, 192)',  // Q2 - turquesa
+                'rgb(153, 102, 255)', // Q3 - morado
+                'rgb(255, 159, 64)',  // Q4 - naranja
+                'rgb(199, 199, 199)'  // Q5 - gris
+            ];
+
+            // Añadir datasets para cada termopar
+            for (let i = 0; i < termopares.length; i++) {
+                const tp = termopares[i];
+                const color = colors[i % colors.length];
+                datasetsTemp.push({
+                    label: 'T ' + tp.nombre,
+                    data: datosExcel.map((d, j) => ({ x: xData[j], y: d.termopares[tp.nombre] })),
+                    borderColor: color,
+                    backgroundColor: color,
+                    fill: false,
+                    tension: 0.1,
+                    showLine: true,
+                    pointRadius: 3
+                });
+            }
+
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    datasets: datasetsTemp
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Temperaturas vs Tiempo'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Tiempo (h)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Temperatura (°C)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Gráfica 2: k por meseta
+            const ctx2 = document.getElementById('chartKValues').getContext('2d');
+
+            // Agrupar por meseta
+            const labelsK = window.resultadosCalculo.map(r => `Mes ${r.meseta} (${r.tRampa}°C) - ${r.termopar}`);
+            const dataK = window.resultadosCalculo.map(r => r.k);
+
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labelsK,
+                    datasets: [{
+                        label: 'k (W/m·K)',
+                        data: dataK,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Conductividad térmica (k) por meseta'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Meseta - Termopar'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'k (W/m·K)'
+                            }
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>
